@@ -1,0 +1,149 @@
+<?php
+/* global todo list 
+ * 
+ * support for all kinds of fields to 'autocomplete'
+ * @todo: support for checkboxes
+ * @todo: support for comboboxes
+ * @todo: support for ...
+ */
+
+
+function multicomplete_menu() {
+  $items = array();
+
+  $items['multicomplete/example'] = array(
+    'title' => 'Example Multi Complete',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('multicomplete_example_form'),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['multicomplete/js/autocomplete/%/f/%'] = array(
+    'title' => '',
+    'page callback' => 'multicomplete_autocomplete',
+    'page arguments' => array(4, 6),
+    'access callback' => '',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+function multicomplete_example_form($form, &$form_state) {
+  $form = array();
+  $form['example_block']['f_first_field'] = array(
+    '#title' => 'First Field',
+    '#description' => '',
+    '#type' => 'textfield',
+    '#autocomplete_path' => 'multicomplete/multicomplete_example_complete_first_field/f/first_field',
+    'attributes' => array (
+      'class' => array('multicomplete'), //@todo: workaround this. probably figure out how to use form_render_thingies
+    ),
+  );
+  $form['example_block']['f_second_field'] = array(
+    '#title' => 'Second Field',
+    '#type' => 'textfield',
+  );
+  $form['example_block']['test_detecting_multicomplete']['third_field'] = array(
+    '#title' => 'Third Field',
+    '#type' => 'textfield',
+  );
+  return $form;
+}
+
+function multicomplete_example_form_multicomplete_objects($string, $field = NULL) {
+  return array(
+    array(
+      'first_field' => 'First field value 1',
+      'second_field' => 'Second field value 1',
+      'third_field' => 'Third field value 1',
+    ),
+    array(
+      'first_field' => 'First field value 2',
+      'second_field' => 'Second field value 2',
+      'third_field' => 'Third field value 2',
+    ),
+    array(
+      'first_field' => 'First field value 3',
+      'second_field' => 'Second field value 3',
+      'third_field' => 'Third field value 3',
+    ),
+    array(
+      'first_field' => 'First field value 4',
+      'second_field' => 'Second field value 4',
+      'third_field' => 'Third field value 4',
+    ),
+  );
+}
+
+function multicomplete_example_multicomplete_first_field($string, $field = NULL) {
+  $autocomplete = multicomplete_example_form_multicomplete_objects($string, $field);
+  $autocomplete['#multicomplete'] = array(
+    'fields' => array(
+      'first_field' => 'f_first_field',
+      'second_field' => 'f_second_field',
+      'third_field',
+    ),
+  );
+  return $autocomplete;
+}
+
+/**
+ * If you are using a callback, the '#complete_fields' element is required. 
+ * @param type $string
+ * @param type $object_callback
+ * @param type $key_field 
+ */
+function multicomplete_autocomplete($string, $object_callback, $key_field) {
+  //print_r(func_get_args());
+  $definition = NULL;
+
+  $ret_value = call_user_func_array($object_callback, array($string, $key_field));
+  if (!is_array($ret_value)) {
+    watchdog('error', drupal_render(
+        array(
+          'message' => array('#type' => 'markup', '#markup' => 'Multicomplete object callback did not return a proper value.'),
+          'funcs' => array('#type' => 'markup', '#markup' => sprintf('<p>Function call: %s(%s, %s) </p>', $object_callback, $string, $key_field)),
+          'return' => array('#type' => 'markup', '#markup' => sprintf('Return value: <br/><pre>%s</pre>'), (string) $ret_value),
+        )
+      )
+    );
+    return drupal_json_output(array());
+  }
+  
+  if (array_key_exists('#multicomplete', $ret_value)) {
+    $definition = $ret_value['#multicomplete'];
+    unset($ret_value['#multicomplete']);
+  }
+
+  $definition['#arguments'] = array('string' => $string, 'object_callback' => $object_callback, 'key_field' => $key_field);
+  $definition['#key'] = $key_field;
+  
+  $prepare_render = multicomplete_prepare_render($ret_value, $definition, $key_field);
+  
+  
+  //@todo: if simple object statement create definition statement!
+  //@todo: markup fields.
+  //@todo: run against definition statement.
+}
+
+function multicomplete_prepare_render(&$objects, &$definition = array(), $key_field) {
+  if ($objects == NULL) {
+    return drupal_json_output(array());
+  }
+  
+  //@todo: implement allowing other modules to alter the object list.
+  
+  $render_arr = array();
+  foreach ($objects as $value) {
+    //@todo run stuff through item render
+  }
+  
+  //@todo: implement allowing other modules to alter render array.
+}
+
+function multicomplete_prepare_render_items($object, $ret_value, $key_field) {
+  //@todo: render stuff I suppose.. (It's getting kinda late)
+}
+
