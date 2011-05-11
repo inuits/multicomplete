@@ -1,4 +1,5 @@
 <?php
+
 /* global todo list 
  * 
  * support for all kinds of fields to 'autocomplete'
@@ -6,7 +7,6 @@
  * @todo: support for comboboxes
  * @todo: support for ...
  */
-
 
 function multicomplete_menu() {
   $items = array();
@@ -16,16 +16,18 @@ function multicomplete_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('multicomplete_example_form'),
     'access callback' => TRUE,
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['multicomplete/js/%/f/%'] = array(
+    'title' => '',
+    'page callback' => 'multicomplete_autocomplete',
+    'page arguments' => array(2, 4),
+    'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   );
 
-  $items['multicomplete/js/autocomplete/%/f/%'] = array(
-    'title' => '',
-    'page callback' => 'multicomplete_autocomplete',
-    'page arguments' => array(4, 6),
-    'access callback' => '',
-    'type' => MENU_CALLBACK,
-  );
+
 
   return $items;
 }
@@ -36,8 +38,8 @@ function multicomplete_example_form($form, &$form_state) {
     '#title' => 'First Field',
     '#description' => '',
     '#type' => 'textfield',
-    '#autocomplete_path' => 'multicomplete/multicomplete_example_complete_first_field/f/first_field',
-    'attributes' => array (
+    '#autocomplete_path' => 'multicomplete/js/multicomplete_example_form_multicomplete_objects/f/f_first_field',
+    '#attributes' => array(
       'class' => array('multicomplete'), //@todo: workaround this. probably figure out how to use form_render_thingies
     ),
   );
@@ -52,7 +54,7 @@ function multicomplete_example_form($form, &$form_state) {
   return $form;
 }
 
-function multicomplete_example_form_multicomplete_objects($string, $field = NULL) {
+function multicomplete_example_form_multicomplete_objects($string, $key_field) {
   return array(
     array(
       'first_field' => 'First field value 1',
@@ -77,70 +79,120 @@ function multicomplete_example_form_multicomplete_objects($string, $field = NULL
   );
 }
 
-function multicomplete_example_multicomplete_first_field($string, $field = NULL) {
-  $autocomplete = multicomplete_example_form_multicomplete_objects($string, $field);
-  $autocomplete['#multicomplete'] = array(
-    'fields' => array(
-      'first_field' => 'f_first_field',
-      'second_field' => 'f_second_field',
-      'third_field',
-    ),
+function multicomplete_example_form_multicomplete_objects_info($key_field, $identifier, &$definition) {
+  $definition['#type'] = 'default'; //type to get data
+  $definition['#map'] = array(// map data field to form fields.
+    'first_field' => 'f_first_field',
+    'second_field' => 'f_second_field',
+    'third_field'
   );
-  return $autocomplete;
+}
+
+function multicomplete_example_form_multicomplete_objects_first_field_info($key_field, $identifier, &$definition) {
+ // not implemented 
 }
 
 /**
- * If you are using a callback, the '#complete_fields' element is required. 
+ * @todo Document the multicomplete autocomplete function with all hooks etc etc.
  * @param type $string
- * @param type $object_callback
+ * @param type $identifier
  * @param type $key_field 
  */
-function multicomplete_autocomplete($string, $object_callback, $key_field) {
-  //print_r(func_get_args());
-  $definition = NULL;
+function multicomplete_autocomplete($identifier, $key_field, $string) {
+  $definition = array(); // initialize definition and defaults.
+  $definition['#arguments'] = array('string' => $string, 'identifier' => $identifier, 'key_field' => $key_field);
+  $definition['#identifier'] = $identifier;
+  $definition['#key'] = $key_field;
+  $definition['#type'] = 'default';
+  $definition['#map'] = array($key_field);
 
-  $ret_value = call_user_func_array($object_callback, array($string, $key_field));
-  if (!is_array($ret_value)) {
-    watchdog('error', drupal_render(
-        array(
-          'message' => array('#type' => 'markup', '#markup' => 'Multicomplete object callback did not return a proper value.'),
-          'funcs' => array('#type' => 'markup', '#markup' => sprintf('<p>Function call: %s(%s, %s) </p>', $object_callback, $string, $key_field)),
-          'return' => array('#type' => 'markup', '#markup' => sprintf('Return value: <br/><pre>%s</pre>'), (string) $ret_value),
-        )
-      )
+
+  $info_callback = $identifier . '_info';
+  $info_field_callback = $identifier . '_' . $key_field . '_info';
+
+  if (function_exists($info_callback)) {
+    call_user_func_array($info_callback, array($key_field, $identifier, &$definition));
+  }
+  if (function_exists($info_field_callback)) {
+    call_user_func_array($info_field_callback, array($key_field, $identifier, &$definition));
+  }
+
+
+
+  $data_callback = 'multicomplete_type_' . $definition['#type'] . '_data';
+  if (!function_exists($data_callback)) {
+    $err_elements = array(
+      'message' => array('#type' => 'markup', '#markup' => 'Given multicomplete type is not known to the system.'),
+      'funcs' => array('#type' => 'markup', '#markup' => sprintf('<p>Function %s does not exist. </p>', $object_callback, $string, $key_field)),
     );
+    watchdog('error', drupal_render($err_elements));
     return drupal_json_output(array());
   }
-  
-  if (array_key_exists('#multicomplete', $ret_value)) {
-    $definition = $ret_value['#multicomplete'];
-    unset($ret_value['#multicomplete']);
+
+
+  $data = call_user_func_array($data_callback, array($string, &$definition));
+  if (!is_array($data)) {
+    $err_elements = array(
+      'message' => array('#type' => 'markup', '#markup' => 'Multicomplete default data callback did not return a proper value.'),
+      'funcs' => array('#type' => 'markup', '#markup' => sprintf('<p>Function call: %s("%s", "%s") </p>', $identifier, $string, $definition)),
+      'return' => array('#type' => 'markup', '#markup' => sprintf('Return value: <br/><pre>%s</pre>'), (string) $data),
+    );
+    watchdog('error', drupal_render($err_elements));
+    return drupal_json_output(array());
   }
 
-  $definition['#arguments'] = array('string' => $string, 'object_callback' => $object_callback, 'key_field' => $key_field);
-  $definition['#key'] = $key_field;
-  
-  $prepare_render = multicomplete_prepare_render($ret_value, $definition, $key_field);
-  
-  
-  //@todo: if simple object statement create definition statement!
-  //@todo: markup fields.
-  //@todo: run against definition statement.
+
+  $pre_render = multicomplete_prepare_render($data, &$definition);
+
+  return drupal_json_output($pre_render);
 }
 
-function multicomplete_prepare_render(&$objects, &$definition = array(), $key_field) {
-  if ($objects == NULL) {
+/**
+ * @todo: Document the default data type 
+ * @param type $string
+ * @param type $definition
+ * @return type 
+ */
+function multicomplete_type_default_data($string, &$definition) {
+  $identifier = $definition['#identifier'];
+  return call_user_func_array($identifier, array($string, &$definition));
+}
+
+/**
+ * @todo: Document prepare render function.
+ * @param type $data
+ * @param type $definition
+ * @param type $key_field
+ * @return array 
+ */
+function multicomplete_prepare_render(&$data, &$definition, $key_field) {
+  if ($data == NULL) {
     return drupal_json_output(array());
   }
-  
-  //@todo: implement allowing other modules to alter the object list.
-  
-  $render_arr = array();
-  foreach ($objects as $value) {
-    //@todo run stuff through item render
+
+  $maps = array();
+
+  foreach ($definition['#map'] as $data_field => $form_field) {
+    if (is_int($data_field)) {
+      $maps[$form_field] = $form_field;
+    }
+    else {
+      $maps[$data_field] = $form_field;
+    }
   }
-  
+
+  //@todo: implement allowing other modules to alter the object list.
+
+  $render_arr = array();
+  foreach ($data as $obj) {
+    $value = (array) $obj;
+    $item = array();
+    //@todo: Loop over elements of thingie and loop over mapings. Might first wanna go after what the object has to offer
+  }
+
   //@todo: implement allowing other modules to alter render array.
+
+  return $render_arr;
 }
 
 function multicomplete_prepare_render_items($object, $ret_value, $key_field) {
