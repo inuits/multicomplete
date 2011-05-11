@@ -38,7 +38,7 @@ function multicomplete_example_form($form, &$form_state) {
     '#title' => 'First Field',
     '#description' => '',
     '#type' => 'textfield',
-    '#autocomplete_path' => 'multicomplete/js/multicomplete_example_form_multicomplete_objects/f/f_first_field',
+    '#autocomplete_path' => 'multicomplete/js/multicomplete_example_form_multicomplete_objects/f/first_field',
     '#attributes' => array(
       'class' => array('multicomplete'), //@todo: workaround this. probably figure out how to use form_render_thingies
     ),
@@ -89,7 +89,7 @@ function multicomplete_example_form_multicomplete_objects_info($key_field, $iden
 }
 
 function multicomplete_example_form_multicomplete_objects_first_field_info($key_field, $identifier, &$definition) {
- // not implemented 
+  // not implemented 
 }
 
 /**
@@ -105,6 +105,7 @@ function multicomplete_autocomplete($identifier, $key_field, $string) {
   $definition['#key'] = $key_field;
   $definition['#type'] = 'default';
   $definition['#map'] = array($key_field);
+  $definition['#do_blanking'] = TRUE; // with blanking enabled, we will include empty values so their fields will be made empty on autocompleting too.
 
 
   $info_callback = $identifier . '_info';
@@ -112,9 +113,11 @@ function multicomplete_autocomplete($identifier, $key_field, $string) {
 
   if (function_exists($info_callback)) {
     call_user_func_array($info_callback, array($key_field, $identifier, &$definition));
+    $definition['#info_callbacks'][] = $info_callback;
   }
   if (function_exists($info_field_callback)) {
     call_user_func_array($info_field_callback, array($key_field, $identifier, &$definition));
+    $definition['#info_callbacks'][] = $info_field_callback;
   }
 
 
@@ -142,7 +145,10 @@ function multicomplete_autocomplete($identifier, $key_field, $string) {
   }
 
 
-  $pre_render = multicomplete_prepare_render($data, &$definition);
+  $pre_render = multicomplete_prepare_render($data, $definition);
+
+  //@todo run pre render through render and add render to each field.
+
 
   return drupal_json_output($pre_render);
 }
@@ -165,10 +171,7 @@ function multicomplete_type_default_data($string, &$definition) {
  * @param type $key_field
  * @return array 
  */
-function multicomplete_prepare_render(&$data, &$definition, $key_field) {
-  if ($data == NULL) {
-    return drupal_json_output(array());
-  }
+function multicomplete_prepare_render(&$data, &$definition) {
 
   $maps = array();
 
@@ -180,19 +183,46 @@ function multicomplete_prepare_render(&$data, &$definition, $key_field) {
       $maps[$data_field] = $form_field;
     }
   }
+  $definition['#map'] = $maps;
 
   //@todo: implement allowing other modules to alter the object list.
 
   $render_arr = array();
   foreach ($data as $obj) {
     $value = (array) $obj;
-    $item = array();
-    //@todo: Loop over elements of thingie and loop over mapings. Might first wanna go after what the object has to offer
+    $key_value = $value[$definition['#key']];
+
+    $fields = array();
+    $fields['#prefix'] = '<span style="visibility: hidden;" class="multicomplete-field-definition">';
+    $fields['#suffix'] = '<span>';
+
+    foreach (array_keys($value) as $obj_field) {
+      $field = array();
+      $field['#type'] = 'markup';
+
+
+      //$field = array('#theme' => 'multicomplete_field_item');
+      //$field['#attributes']['class'][] = 'multicomplete-field-value';
+
+      if (array_key_exists($obj_field, $maps)) {
+        $form_field = $maps[$obj_field];
+      }
+      else {
+        $form_field = $obj_field;
+      }
+      $field['#markup'] = check_plain($value[$obj_field]);
+      $field['#prefix'] = '<span class="multicomplete-field-value" field="' . $form_field . '">';
+      $field['#suffix'] = '</span>';
+
+      $fields[$obj_field] = $field;
+    }
+
+    $render_arr[$key_value] = drupal_render($fields);
   }
 
   //@todo: implement allowing other modules to alter render array.
-
   return $render_arr;
+  //return array('definition' => $definition, 'render_arr' => $render_arr);
 }
 
 function multicomplete_prepare_render_items($object, $ret_value, $key_field) {
