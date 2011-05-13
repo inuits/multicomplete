@@ -32,6 +32,15 @@ function multicomplete_menu() {
   return $items;
 }
 
+function multicomplete_theme() {
+  $items = array(
+    'multicomplete_definition' => array(
+      'render element' => 'element', //@todo: Fix this... I'm not really sure what this does (yet).
+    ),
+  );
+  return $items;
+}
+
 function multicomplete_example_form($form, &$form_state) {
   $form = array();
   $form['example_block']['f_first_field'] = array(
@@ -93,6 +102,17 @@ function multicomplete_example_form_multicomplete_objects_first_field_info($key_
 }
 
 /**
+ * @todo: Document the default data type 
+ * @param type $string
+ * @param type $definition
+ * @return type 
+ */
+function multicomplete_type_default_data($string, &$definition) {
+  $identifier = $definition['#identifier'];
+  return call_user_func_array($identifier, array($string, &$definition));
+}
+
+/**
  * @todo Document the multicomplete autocomplete function with all hooks etc etc.
  * @param type $string
  * @param type $identifier
@@ -144,24 +164,15 @@ function multicomplete_autocomplete($identifier, $key_field, $string) {
     return drupal_json_output(array());
   }
 
+  //@todo: implement allowing other modules to alter the object list.
 
   $pre_render = multicomplete_prepare_render($data, $definition);
 
-  //@todo run pre render through render and add render to each field.
+  //@todo: Allow other modules to adjust the prepared render array.
 
+  $render = multicomplete_render($pre_render, $definition);
 
   return drupal_json_output($pre_render);
-}
-
-/**
- * @todo: Document the default data type 
- * @param type $string
- * @param type $definition
- * @return type 
- */
-function multicomplete_type_default_data($string, &$definition) {
-  $identifier = $definition['#identifier'];
-  return call_user_func_array($identifier, array($string, &$definition));
 }
 
 /**
@@ -185,47 +196,55 @@ function multicomplete_prepare_render(&$data, &$definition) {
   }
   $definition['#map'] = $maps;
 
-  //@todo: implement allowing other modules to alter the object list.
-
   $render_arr = array();
   foreach ($data as $obj) {
     $value = (array) $obj;
     $key_value = $value[$definition['#key']];
 
     $fields = array();
-    $fields['#prefix'] = '<span style="visibility: hidden;" class="multicomplete-field-definition">';
-    $fields['#suffix'] = '<span>';
-
+    $fields['#theme'] = array('multicomplete_definition');
+    $fields['multicomplete'] = array();
+    $fields['format'] = array(//@todo document #theme in $definition
+      '#theme' => isset($definition['#element_theme']) ? $definition['#element_theme'] : 'multicomplete_default_markup',
+    );
     foreach (array_keys($value) as $obj_field) {
-      $field = array();
-      $field['#type'] = 'markup';
-
-
-      //$field = array('#theme' => 'multicomplete_field_item');
-      //$field['#attributes']['class'][] = 'multicomplete-field-value';
-
       if (array_key_exists($obj_field, $maps)) {
         $form_field = $maps[$obj_field];
       }
       else {
         $form_field = $obj_field;
       }
-      $field['#markup'] = check_plain($value[$obj_field]);
-      $field['#prefix'] = '<span class="multicomplete-field-value" field="' . $form_field . '">';
-      $field['#suffix'] = '</span>';
-
-      $fields[$obj_field] = $field;
+      $field['#value'] = check_plain($value[$obj_field]);
+      //$field['#attributes']['class'][] = 'multicomplete-field-value'; 
+      //$field['#attributes']['field'] = $form_field;
+      $fields['multicomplete'][$form_field] = $field;
+      $fields['format'][$form_field] = check_plain($value[$obj_field]);
     }
-
-    $render_arr[$key_value] = drupal_render($fields);
+    $render_arr[$key_value] = $fields;
   }
 
-  //@todo: implement allowing other modules to alter render array.
   return $render_arr;
   //return array('definition' => $definition, 'render_arr' => $render_arr);
 }
 
-function multicomplete_prepare_render_items($object, $ret_value, $key_field) {
-  //@todo: render stuff I suppose.. (It's getting kinda late)
+function multicomplete_render($pre_render, &$definition) {
+  
 }
 
+function theme_multicomplete_definition($variables) {
+  //@todo implement proper rendering.
+  $element = $variables['element'];
+  $output = '';
+  $output .= $element['#children'];
+  $output .= '';
+  return $output;
+}
+
+//function multicomplete_prepare_render_items($object, $ret_value, $key_field) {
+//  //@todo: render stuff I suppose.. (It's getting kinda late)
+//  $output = '';
+//  foreach (element_children($variables['element']['child']) as $item) {
+//    $output .= $variables['element']['child'][$item] . $variables['element']['#separator'];
+//  }
+//  return $output;
+//}
