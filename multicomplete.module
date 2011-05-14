@@ -27,15 +27,19 @@ function multicomplete_menu() {
     'type' => MENU_CALLBACK,
   );
 
-
-
   return $items;
 }
 
 function multicomplete_theme() {
   $items = array(
     'multicomplete_definition' => array(
-      'render element' => 'element', //@todo: Fix this... I'm not really sure what this does (yet).
+      'render element' => 'element', //@todo: Is this the proper way to theme stuff?
+    ),
+    'multicomplete_default_element' => array(
+      'render element' => 'element', //@todo: Is this the proper way to theme stuff?
+    ),
+    'multicomplete_render_multicomplete_value' => array(
+      'render element' => 'element', //@todo: Is this the proper way to theme stuff?
     ),
   );
   return $items;
@@ -90,9 +94,9 @@ function multicomplete_example_form_multicomplete_objects($string, $key_field) {
 
 function multicomplete_example_form_multicomplete_objects_info($key_field, $identifier, &$definition) {
   $definition['#type'] = 'default'; //type to get data
-  $definition['#map'] = array(// map data field to form fields.
+  $definition['#fields'] = array(// map data field to form fields.
     'first_field' => 'f_first_field',
-    'second_field' => 'f_second_field',
+    'second_field' => array('f_second_field', 'render template' => array(/* @todo: fill up with sth we can use? */)),
     'third_field'
   );
 }
@@ -114,19 +118,22 @@ function multicomplete_type_default_data($string, &$definition) {
 
 /**
  * @todo Document the multicomplete autocomplete function with all hooks etc etc.
+ * 
+ * @todo Document different hooks we provide / call
+ * 
+ * @todo Document $definition options
+ * 
  * @param type $string
  * @param type $identifier
  * @param type $key_field 
  */
 function multicomplete_autocomplete($identifier, $key_field, $string) {
   $definition = array(); // initialize definition and defaults.
-  $definition['#arguments'] = array('string' => $string, 'identifier' => $identifier, 'key_field' => $key_field);
+  $definition['#string'] = $string;
   $definition['#identifier'] = $identifier;
   $definition['#key'] = $key_field;
   $definition['#type'] = 'default';
-  $definition['#map'] = array($key_field);
-  $definition['#do_blanking'] = TRUE; // with blanking enabled, we will include empty values so their fields will be made empty on autocompleting too.
-
+  $definition['#fields'] = array($key_field);
 
   $info_callback = $identifier . '_info';
   $info_field_callback = $identifier . '_' . $key_field . '_info';
@@ -140,18 +147,16 @@ function multicomplete_autocomplete($identifier, $key_field, $string) {
     $definition['#info_callbacks'][] = $info_field_callback;
   }
 
-
-
+  //<editor-fold defaultstate="collapsed" desc=" Data retrieval stuff ">
   $data_callback = 'multicomplete_type_' . $definition['#type'] . '_data';
   if (!function_exists($data_callback)) {
     $err_elements = array(
       'message' => array('#type' => 'markup', '#markup' => 'Given multicomplete type is not known to the system.'),
-      'funcs' => array('#type' => 'markup', '#markup' => sprintf('<p>Function %s does not exist. </p>', $object_callback, $string, $key_field)),
+      'funcs' => array('#type' => 'markup', '#markup' => sprintf('<p>Function %s does not exist. </p>', $data_callback)),
     );
     watchdog('error', drupal_render($err_elements));
     return drupal_json_output(array());
   }
-
 
   $data = call_user_func_array($data_callback, array($string, &$definition));
   if (!is_array($data)) {
@@ -165,6 +170,9 @@ function multicomplete_autocomplete($identifier, $key_field, $string) {
   }
 
   //@todo: implement allowing other modules to alter the object list.
+  //</editor-fold>
+  // Cleanup mappings. 
+  _multicomplete_process_fields($definition);
 
   $pre_render = multicomplete_prepare_render($data, $definition);
 
@@ -172,7 +180,24 @@ function multicomplete_autocomplete($identifier, $key_field, $string) {
 
   $render = multicomplete_render($pre_render, $definition);
 
-  return drupal_json_output($pre_render);
+  return drupal_json_output($render);
+}
+
+function _multicomplete_process_fields(&$definition) {
+  $maps = array();
+
+  foreach ($definition['#fields'] as $data_field => &$form_field) {
+
+    $field_name = is_array($form_field) ? array_shift($form_field) : $form_field;
+    $key_name = is_int($data_field) ? $field_name : $data_field;
+
+    $maps[$key_name] = $field_name;
+    $definition['#fields'][$key_name] = is_array($form_field) ? $form_field : array();
+    if (is_int($data_field)) {
+      unset($definition['#fields'][$data_field]);
+    }
+  }
+  $definition['#map'] = $maps;
 }
 
 /**
@@ -183,19 +208,7 @@ function multicomplete_autocomplete($identifier, $key_field, $string) {
  * @return array 
  */
 function multicomplete_prepare_render(&$data, &$definition) {
-
-  $maps = array();
-
-  foreach ($definition['#map'] as $data_field => $form_field) {
-    if (is_int($data_field)) {
-      $maps[$form_field] = $form_field;
-    }
-    else {
-      $maps[$data_field] = $form_field;
-    }
-  }
-  $definition['#map'] = $maps;
-
+  $maps = $definition['#map'];
   $render_arr = array();
   foreach ($data as $obj) {
     $value = (array) $obj;
@@ -203,10 +216,8 @@ function multicomplete_prepare_render(&$data, &$definition) {
 
     $fields = array();
     $fields['#theme'] = array('multicomplete_definition');
-    $fields['multicomplete'] = array();
-    $fields['format'] = array(//@todo document #theme in $definition
-      '#theme' => isset($definition['#element_theme']) ? $definition['#element_theme'] : 'multicomplete_default_markup',
-    );
+    $fields['values'] = array();
+
     foreach (array_keys($value) as $obj_field) {
       if (array_key_exists($obj_field, $maps)) {
         $form_field = $maps[$obj_field];
@@ -217,9 +228,24 @@ function multicomplete_prepare_render(&$data, &$definition) {
       $field['#value'] = check_plain($value[$obj_field]);
       //$field['#attributes']['class'][] = 'multicomplete-field-value'; 
       //$field['#attributes']['field'] = $form_field;
-      $fields['multicomplete'][$form_field] = $field;
-      $fields['format'][$form_field] = check_plain($value[$obj_field]);
+      $fields['values'][$form_field] = $field;
     }
+
+    $format_callback = isset($definition['#element_format']) ? $definition['#element_format'] : 'multicomplete_render_element_format';
+    if (!function_exists($format_callback)) {
+      $err_elements = array(
+        'message' => array('#type' => 'markup', '#markup' => 'Given multicomplete element formatter is not known to the system.'),
+        'funcs' => array('#type' => 'markup', '#markup' => sprintf('<p>Function %s does not exist. </p>', $format_callback)),
+      );
+      watchdog('error', drupal_render($err_elements));
+      return array();
+    }
+    $fields['format'] = call_user_func_array($format_callback, array(&$obj, &$definition));
+
+    //@todo implement running the #element_format definition to prepare the format array.
+    //@todo: Allow altering / hooking into this.
+    //$fields['format'][$form_field] = check_plain($value[$obj_field]);
+
     $render_arr[$key_value] = $fields;
   }
 
@@ -228,16 +254,37 @@ function multicomplete_prepare_render(&$data, &$definition) {
 }
 
 function multicomplete_render($pre_render, &$definition) {
-  
+  $rendered = array();
+  foreach (array_keys($pre_render) as $key) {
+    $rendered[$key] = drupal_render($pre_render[$key]);
+  }
+  return $rendered;
 }
 
 function theme_multicomplete_definition($variables) {
   //@todo implement proper rendering.
   $element = $variables['element'];
-  $output = '';
-  $output .= $element['#children'];
-  $output .= '';
+  $values = $element['values'];
+  $format = $element['format'];
+
+  //$attributes = $variables['attributes'];
+
+  $output = '<div' /* . drupal_attributes($attributes) */ . '>';
+  $output .= '<span></span>';
+  $output .= drupal_render($format);
+  $output .= '</div>';
   return $output;
+}
+
+function multicomplete_render_element_format(&$obj, &$definition) {
+  return array(
+    '#theme' => 'multicomplete_default_element',
+    'obj' => $obj,
+  );
+}
+
+function theme_multicomplete_default_element($variables) {
+  return sprintf('<pre>%s</pre>', print_r($variables, TRUE));
 }
 
 //function multicomplete_prepare_render_items($object, $ret_value, $key_field) {
