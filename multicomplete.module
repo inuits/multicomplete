@@ -33,13 +33,13 @@ function multicomplete_menu() {
 function multicomplete_theme() {
   $items = array(
     'multicomplete_definition' => array(
-      'render element' => 'element', //@todo: Is this the proper way to theme stuff?
+      'render element' => 'element',
     ),
     'multicomplete_default_element' => array(
-      'render element' => 'element', //@todo: Is this the proper way to theme stuff?
+      'render element' => 'element',
     ),
     'multicomplete_render_multicomplete_value' => array(
-      'render element' => 'element', //@todo: Is this the proper way to theme stuff?
+      'render element' => 'element',
     ),
   );
   return $items;
@@ -72,22 +72,26 @@ function multicomplete_example_form_multicomplete_objects($string, $key_field) {
     array(
       'first_field' => 'First field value 1',
       'second_field' => 'Second field value 1',
-      'third_field' => 'Third field value 1',
+      'third_field' => TRUE,
+      'strict_test' => 'test',
     ),
     array(
       'first_field' => 'First field value 2',
       'second_field' => 'Second field value 2',
-      'third_field' => 'Third field value 2',
+      'third_field' => FALSE,
+      'strict_test' => 'test',
     ),
     array(
       'first_field' => 'First field value 3',
       'second_field' => 'Second field value 3',
-      'third_field' => 'Third field value 3',
+      'third_field' => FALSE,
+      'strict_test' => 'test',
     ),
     array(
       'first_field' => 'First field value 4',
       'second_field' => 'Second field value 4',
-      'third_field' => 'Third field value 4',
+      'third_field' => TRUE,
+      'strict_test' => 'test',
     ),
   );
 }
@@ -96,7 +100,7 @@ function multicomplete_example_form_multicomplete_objects_info($key_field, $iden
   $definition['#type'] = 'default'; //type to get data
   $definition['#fields'] = array(// map data field to form fields.
     'first_field' => 'f_first_field',
-    'second_field' => array('f_second_field', 'render template' => array(/* @todo: fill up with sth we can use? */)),
+    'second_field' => array('f_second_field'),
     'third_field'
   );
 }
@@ -134,6 +138,7 @@ function multicomplete_autocomplete($identifier, $key_field, $string) {
   $definition['#key'] = $key_field;
   $definition['#type'] = 'default';
   $definition['#fields'] = array($key_field);
+  $definition['#strict'] = FALSE;
 
   $info_callback = $identifier . '_info';
   $info_field_callback = $identifier . '_' . $key_field . '_info';
@@ -175,7 +180,6 @@ function multicomplete_autocomplete($identifier, $key_field, $string) {
   _multicomplete_process_fields($definition);
 
   $pre_render = multicomplete_prepare_render($data, $definition);
-
   //@todo: Allow other modules to adjust the prepared render array.
 
   $render = multicomplete_render($pre_render, $definition);
@@ -219,15 +223,26 @@ function multicomplete_prepare_render(&$data, &$definition) {
     $fields['values'] = array();
 
     foreach (array_keys($value) as $obj_field) {
+
+      $field = $definition['#fields'][$obj_field];
       if (array_key_exists($obj_field, $maps)) {
         $form_field = $maps[$obj_field];
       }
-      else {
+      elseif (!$definition['#strict']) {
         $form_field = $obj_field;
       }
-      $field['#value'] = check_plain($value[$obj_field]);
-      //$field['#attributes']['class'][] = 'multicomplete-field-value'; 
-      //$field['#attributes']['field'] = $form_field;
+      else {
+        continue;
+      }
+
+      if (is_bool($value[$obj_field])) {
+        $field['#value'] = $value[$obj_field] ? '1' : '0';
+        $field['#type'] = 'boolean';
+      }
+      else {
+        $field['#value'] = check_plain((string) $value[$obj_field]);
+      }
+
       $fields['values'][$form_field] = $field;
     }
 
@@ -240,11 +255,10 @@ function multicomplete_prepare_render(&$data, &$definition) {
       watchdog('error', drupal_render($err_elements));
       return array();
     }
-    $fields['format'] = call_user_func_array($format_callback, array(&$obj, &$definition));
+    $fields['format'] = call_user_func_array($format_callback, array(&$obj, &$fields['values'], &$definition));
 
     //@todo implement running the #element_format definition to prepare the format array.
     //@todo: Allow altering / hooking into this.
-    //$fields['format'][$form_field] = check_plain($value[$obj_field]);
 
     $render_arr[$key_value] = $fields;
   }
@@ -253,10 +267,10 @@ function multicomplete_prepare_render(&$data, &$definition) {
   //return array('definition' => $definition, 'render_arr' => $render_arr);
 }
 
-function multicomplete_render($pre_render, &$definition) {
+function multicomplete_render($render, &$definition) {
   $rendered = array();
-  foreach (array_keys($pre_render) as $key) {
-    $rendered[$key] = drupal_render($pre_render[$key]);
+  foreach (array_keys($render) as $key) {
+    $rendered[$key] = drupal_render($render[$key]);
   }
   return $rendered;
 }
@@ -266,25 +280,70 @@ function theme_multicomplete_definition($variables) {
   $element = $variables['element'];
   $values = $element['values'];
   $format = $element['format'];
+  $definition = $element['#definition'];
 
   //$attributes = $variables['attributes'];
 
-  $output = '<div' /* . drupal_attributes($attributes) */ . '>';
-  $output .= '<span></span>';
+  $output .= '<div' /* . drupal_attributes($attributes) */ . '>';
+  $output .= '<span style="display: none" class="multicomplete-element">' . _multicomplete_render_fields($values, $definition) . '</span>';
   $output .= drupal_render($format);
   $output .= '</div>';
   return $output;
 }
 
-function multicomplete_render_element_format(&$obj, &$definition) {
+function _multicomplete_render_fields($values, $definition) {
+  $output = '';
+  foreach ($values as $key => $val) {
+    $output .= '<span';
+    $attributes = array(
+      'data-field' => $key,
+      'data-type' => $val['#type']
+    );
+
+    $output .= drupal_attributes($attributes);
+    $output .= '>';
+    $output .= $val['#value'];
+    $output .= '</span>';
+  }
+  return $output;
+}
+
+function multicomplete_render_element_format(&$obj, &$values, &$definition) {
   return array(
     '#theme' => 'multicomplete_default_element',
-    'obj' => $obj,
+    'object' => $obj,
+    'definition' => $definition,
+    'values' => $values,
   );
 }
 
 function theme_multicomplete_default_element($variables) {
-  return sprintf('<pre>%s</pre>', print_r($variables, TRUE));
+  $element = $variables['element'];
+  $object = $element['object'];
+  $definition = $element['definition'];
+  $values = $element['values'];
+  $output = '';
+  $value_arr = array();
+
+  foreach ($values as $val) {
+
+    if (!isset($val['#hidden']) || $val['#hidden'] == FALSE) {
+
+      switch ($val['#type']) {
+        case 'text':
+          $value_arr[] = $val['#value'];
+          break;
+        case 'boolean':
+          break;
+        default:
+          $value_arr[] = (string) $val['#value'];
+      }
+    }
+  }
+
+  $output .= implode(', ', $value_arr);
+
+  return $output;
 }
 
 //function multicomplete_prepare_render_items($object, $ret_value, $key_field) {
