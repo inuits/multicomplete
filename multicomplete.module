@@ -45,6 +45,27 @@ function multicomplete_theme() {
   return $items;
 }
 
+function multicomplete_library() {
+  $libraries = array();
+  $libraries['multicomplete'] = array(
+    'title' => 'Drupal autocomplete',
+    'version' => '0.1',
+    'js' => array(
+      drupal_get_path('module', 'multicomplete') . '/multicomplete.js' => array('group' => JS_DEFAULT),
+    ),
+    'dependencies' => array(
+      array('system', 'drupal.autocomplete'),
+    ),
+  );
+  return $libraries;
+}
+
+function multicomplete_init() {
+  drupal_add_library('multicomplete', 'multicomplete', TRUE);
+  //drupal_add_js($path . '/multicomplete.js', array('weight' => -100));
+}
+
+
 function multicomplete_example_form($form, &$form_state) {
   $form = array();
   $form['example_block']['f_first_field'] = array(
@@ -52,9 +73,6 @@ function multicomplete_example_form($form, &$form_state) {
     '#description' => '',
     '#type' => 'textfield',
     '#autocomplete_path' => 'multicomplete/js/multicomplete_example_form_multicomplete_objects/f/first_field',
-    '#attributes' => array(
-      'class' => array('multicomplete'), //@todo: workaround this. probably figure out how to use form_render_thingies
-    ),
   );
   $form['example_block']['f_second_field'] = array(
     '#title' => 'Second Field',
@@ -309,7 +327,7 @@ function theme_multicomplete_definition($variables) {
   $output = '';
   //$attributes = $variables['attributes'];
 
-  $output .= '<div' /* . drupal_attributes($attributes) */ . '>';
+  $output .= '<div class="multicomplete-element-result"  >';
   $output .= '<span style="display: none" class="multicomplete-element">' . _multicomplete_render_fields($values, $definition) . '</span>';
   $output .= drupal_render($format);
   $output .= '</div>';
