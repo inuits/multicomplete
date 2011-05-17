@@ -327,7 +327,7 @@ function theme_multicomplete_definition($variables) {
   $output = '';
   //$attributes = $variables['attributes'];
 
-  $output .= '<div class="multicomplete-element-result"  >';
+  $output .= '<div class="multicomplete-result">';
   $output .= '<span style="display: none" class="multicomplete-element">' . _multicomplete_render_fields($values, $definition) . '</span>';
   $output .= drupal_render($format);
   $output .= '</div>';
@@ -343,6 +343,9 @@ function _multicomplete_render_fields($values, $definition) {
       'data-field' => $key,
       'data-type' => $val['#type']
     );
+    if ($definition['#key'] == $key) {
+      $attributes['data-key'] = 1;
+    }
 
     $output .= drupal_attributes($attributes);
     $output .= '>';
