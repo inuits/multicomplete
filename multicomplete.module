@@ -1,7 +1,7 @@
 <?php
 
-/* global todo list 
- * 
+/* global todo list
+ *
  * support for all kinds of fields to 'autocomplete'
  * @todo: support for checkboxes
  * @todo: support for comboboxes
@@ -106,14 +106,18 @@ function multicomplete_example_form_multicomplete_objects_info($key_field, $iden
 }
 
 function multicomplete_example_form_multicomplete_objects_first_field_info($key_field, $identifier, &$definition) {
-  // not implemented 
+  // not implemented
 }
 
 /**
- * @todo: Document the default data type 
- * @param type $string
- * @param type $definition
- * @return type 
+ *
+ * @param $string
+ *
+ * @param $definition
+ *
+ * @return
+ *
+ * @todo: Document the default data type
  */
 function multicomplete_type_default_data($string, &$definition) {
   $identifier = $definition['#identifier'];
@@ -121,15 +125,18 @@ function multicomplete_type_default_data($string, &$definition) {
 }
 
 /**
+ *
+ * @param $string
+ *
+ * @param $identifier
+ *
+ * @param $key_field
+ *
+ * @return
+ *
  * @todo Document the multicomplete autocomplete function with all hooks etc etc.
- * 
  * @todo Document different hooks we provide / call
- * 
  * @todo Document $definition options
- * 
- * @param type $string
- * @param type $identifier
- * @param type $key_field 
  */
 function multicomplete_autocomplete($identifier, $key_field, $string) {
   $definition = array(); // initialize definition and defaults.
@@ -176,17 +183,18 @@ function multicomplete_autocomplete($identifier, $key_field, $string) {
 
   //@todo: implement allowing other modules to alter the object list.
   //</editor-fold>
-  // Cleanup mappings. 
+  // Cleanup mappings.
   _multicomplete_process_fields($definition);
 
   $pre_render = multicomplete_prepare_render($data, $definition);
   //@todo: Allow other modules to adjust the prepared render array.
 
-  $render = multicomplete_render($pre_render, $definition);
+  $render = _multicomplete_render($pre_render, $definition);
 
   return drupal_json_output($render);
 }
 
+// Preprocess fields and create the map (object field to form field)
 function _multicomplete_process_fields(&$definition) {
   $maps = array();
 
@@ -205,11 +213,16 @@ function _multicomplete_process_fields(&$definition) {
 }
 
 /**
+ *
+ * @param $data
+ *
+ * @param $definition
+ *
+ * @param $key_field
+ *
+ * @return
+ *
  * @todo: Document prepare render function.
- * @param type $data
- * @param type $definition
- * @param type $key_field
- * @return array 
  */
 function multicomplete_prepare_render(&$data, &$definition) {
   $maps = $definition['#map'];
@@ -220,11 +233,16 @@ function multicomplete_prepare_render(&$data, &$definition) {
 
     $fields = array();
     $fields['#theme'] = array('multicomplete_definition');
+    $fields['#definition'] = $definition;
     $fields['values'] = array();
 
     foreach (array_keys($value) as $obj_field) {
 
-      $field = $definition['#fields'][$obj_field];
+      $field = (isset($definition['#fields'][$obj_field]) && !$definition['#strict']) ? $definition['#fields'][$obj_field] : array();
+      if (!isset($field['#type'])) {
+        $field['#type'] = 'text';
+      }
+
       if (array_key_exists($obj_field, $maps)) {
         $form_field = $maps[$obj_field];
       }
@@ -235,12 +253,11 @@ function multicomplete_prepare_render(&$data, &$definition) {
         continue;
       }
 
+      $field['#value'] = check_plain((string) $value[$obj_field]);
+
       if (is_bool($value[$obj_field])) {
         $field['#value'] = $value[$obj_field] ? '1' : '0';
         $field['#type'] = 'boolean';
-      }
-      else {
-        $field['#value'] = check_plain((string) $value[$obj_field]);
       }
 
       $fields['values'][$form_field] = $field;
@@ -267,7 +284,7 @@ function multicomplete_prepare_render(&$data, &$definition) {
   //return array('definition' => $definition, 'render_arr' => $render_arr);
 }
 
-function multicomplete_render($render, &$definition) {
+function _multicomplete_render($render, &$definition) {
   $rendered = array();
   foreach (array_keys($render) as $key) {
     $rendered[$key] = drupal_render($render[$key]);
@@ -275,13 +292,21 @@ function multicomplete_render($render, &$definition) {
   return $rendered;
 }
 
+/**
+ *
+ * @param $variables
+ *
+ * @return
+ *
+ * @todo: Document de default multicomplete_definition theme.
+ */
 function theme_multicomplete_definition($variables) {
   //@todo implement proper rendering.
   $element = $variables['element'];
   $values = $element['values'];
   $format = $element['format'];
   $definition = $element['#definition'];
-
+  $output = '';
   //$attributes = $variables['attributes'];
 
   $output .= '<div' /* . drupal_attributes($attributes) */ . '>';
@@ -291,6 +316,7 @@ function theme_multicomplete_definition($variables) {
   return $output;
 }
 
+// Here we render the important field definitions to (ab)use in javascript land.
 function _multicomplete_render_fields($values, $definition) {
   $output = '';
   foreach ($values as $key => $val) {
@@ -308,6 +334,18 @@ function _multicomplete_render_fields($values, $definition) {
   return $output;
 }
 
+/**
+ *
+ * @param $obj
+ *
+ * @param $values
+ *
+ * @param $definition
+ *
+ * @return
+ *
+ * @todo: document default render_element_format function
+ */
 function multicomplete_render_element_format(&$obj, &$values, &$definition) {
   return array(
     '#theme' => 'multicomplete_default_element',
@@ -317,6 +355,14 @@ function multicomplete_render_element_format(&$obj, &$values, &$definition) {
   );
 }
 
+/**
+ *
+ * @param $variables
+ *
+ * @return
+ *
+ * @todo: document default multicomplete element render function. used by the render_element_format.
+ */
 function theme_multicomplete_default_element($variables) {
   $element = $variables['element'];
   $object = $element['object'];
@@ -345,12 +391,3 @@ function theme_multicomplete_default_element($variables) {
 
   return $output;
 }
-
-//function multicomplete_prepare_render_items($object, $ret_value, $key_field) {
-//  //@todo: render stuff I suppose.. (It's getting kinda late)
-//  $output = '';
-//  foreach (element_children($variables['element']['child']) as $item) {
-//    $output .= $variables['element']['child'][$item] . $variables['element']['#separator'];
-//  }
-//  return $output;
-//}
