@@ -1,4 +1,4 @@
-name = multicomplete
+name = Multicomplete
 description = "Autocomplete multiple fields"
 package = "vStone"
 version = "0.1"
