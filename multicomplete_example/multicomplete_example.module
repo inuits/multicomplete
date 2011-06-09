@@ -4,12 +4,11 @@ function multicomplete_example_menu() {
   
   $items = array();
   
-  $items['multicomplete/example'] = array(
+  $items['examples/multicomplete'] = array(
     'title' => 'Example Multi Complete',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('multicomplete_example_form'),
     'access callback' => TRUE,
-    'type' => MENU_NORMAL_ITEM,
   );
   
   return $items;
