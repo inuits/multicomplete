@@ -1,0 +1,78 @@
+<?php
+
+function multicomplete_example_menu() {
+  
+  $items = array();
+  
+  $items['multicomplete/example'] = array(
+    'title' => 'Example Multi Complete',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('multicomplete_example_form'),
+    'access callback' => TRUE,
+    'type' => MENU_NORMAL_ITEM,
+  );
+  
+  return $items;
+  
+}
+
+function multicomplete_example_form($form, &$form_state) {
+  $form = array();
+  $form['example_block']['f_first_field'] = array(
+    '#title' => 'First Field',
+    '#description' => '',
+    '#type' => 'textfield',
+    '#autocomplete_path' => 'multicomplete/js/multicomplete_example_form_multicomplete_objects/f/first_field',
+  );
+  $form['example_block']['f_second_field'] = array(
+    '#title' => 'Second Field',
+    '#type' => 'textfield',
+  );
+  $form['example_block']['test_detecting_multicomplete']['third_field'] = array(
+    '#title' => 'Third Field',
+    '#type' => 'textfield',
+  );
+  return $form;
+}
+
+function multicomplete_example_form_multicomplete_objects($string, $key_field) {
+  return array(
+    array(
+      'first_field' => 'First field value 1',
+      'second_field' => 'Second field value 1',
+      'third_field' => TRUE,
+      'strict_test' => 'test',
+    ),
+    array(
+      'first_field' => 'First field value 2',
+      'second_field' => 'Second field value 2',
+      'third_field' => FALSE,
+      'strict_test' => 'test',
+    ),
+    array(
+      'first_field' => 'First field value 3',
+      'second_field' => 'Second field value 3',
+      'third_field' => FALSE,
+      'strict_test' => 'test',
+    ),
+    array(
+      'first_field' => 'First field value 4',
+      'second_field' => 'Second field value 4',
+      'third_field' => TRUE,
+      'strict_test' => 'test',
+    ),
+  );
+}
+
+function multicomplete_example_form_multicomplete_objects_info($key_field, $identifier, &$definition) {
+  $definition['#type'] = 'default'; //type to get data
+  $definition['#fields'] = array(// map data field to form fields.
+    'first_field' => 'f_first_field',
+    'second_field' => array('f_second_field'),
+    'third_field'
+  );
+}
+
+function multicomplete_example_form_multicomplete_objects_first_field_info($key_field, $identifier, &$definition) {
+  // not implemented
+}

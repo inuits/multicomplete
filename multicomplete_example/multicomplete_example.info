@@ -1,0 +1,8 @@
+name = Multicomplete example
+description = "A Multicomplete example for developers"
+package = "vStone"
+version = "0.1"
+core = "7.x"
+php = "5.x"
+
+dependencies[] = multicomplete
