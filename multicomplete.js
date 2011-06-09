@@ -24,14 +24,12 @@
     };
 
 
-    //@todo: Find a way to hook this into drupal without patching drupal core. :/
-
     //@todo: implement generic handling of our KICKASS multicomplete callbacks.
 
     Drupal.behaviors.multicompleteHandler = {
         attach: function(context,settings) {
             $('input', context).bind('autocomplete_select', function(event, element) {
-                //@todo: check if element has a multicomplete definition or bail out!
+                //check if element has a multicomplete definition or bail out!
                 var children = $(element).find('.multicomplete-result');
                 if (children.length == 0) {
                     return;
