@@ -23,32 +23,30 @@
         $(this.ariaLive).empty();
     };
 
-
-    //@todo: implement generic handling of our KICKASS multicomplete callbacks.
+    // @todo: Allow disabling of updating not-empty fields.
 
     Drupal.behaviors.multicompleteHandler = {
         attach: function(context,settings) {
+
+            valuesetter = function(form, field) {
+                //@todo: handle stuff other than text (checkboxes, etc etc)
+                var inputf =  $(form).find('input[name=' + $(field).attr('data-field') + ']');
+                inputf.val($(field).first().text());
+            };
+
             $('input', context).bind('autocomplete_select', function(event, element) {
                 //check if element has a multicomplete definition or bail out!
-                var children = $(element).find('.multicomplete-result');
-                if (children.length == 0) {
+                var mcomplete_wrapper = $(element).find('.multicomplete-result .multicomplete-element');
+                if (mcomplete_wrapper.length == 0) {
                     return;
                 }
                 //inter-form updates are not allowed.
-
                 var form = $(element).closest('form');
-                //@todo: collect input values
-                //@todo: update input fields
-                // incl. empty values.
+                $.each(mcomplete_wrapper.children(), function(index, child) {
+                    valuesetter(form, child);
+                });
 
-                //@todo: set form field values.
-                //$.each(values, function(key, value) {
-                //    if (value.length > 0) {
-                //        infields[key].val(value);
-                //    }
-                //});
-
-            })
+            });
         }
     }
 
