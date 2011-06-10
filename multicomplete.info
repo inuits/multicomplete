@@ -1,6 +1,6 @@
 name = Multicomplete
 description = "Autocomplete multiple fields"
 package = "vStone"
-version = "0.1"
+version = "1.0"
 core = "7.x"
 php = "5.x"
