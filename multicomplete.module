@@ -59,6 +59,8 @@ function multicomplete_init() {
 
 
 /**
+ * The default data retrieve callback will use the the multicomplete identifier as the function to call to retrieve
+ * objects.
  *
  * @param $string
  *
@@ -99,17 +101,20 @@ function multicomplete_autocomplete($identifier, $key_field, $string) {
   $info_callback = $identifier . '_info';
   $info_field_callback = $identifier . '_' . $key_field . '_info';
 
+  //Allow info callbacks to alter the $definition and also record executed callbacks in $definition itself.
   if (function_exists($info_callback)) {
     call_user_func_array($info_callback, array($key_field, $identifier, &$definition));
     $definition['#info_callbacks'][] = $info_callback;
-  }
+  } //@todo: Why are we using this? Document all possible hooks PLEASE
   if (function_exists($info_field_callback)) {
     call_user_func_array($info_field_callback, array($key_field, $identifier, &$definition));
     $definition['#info_callbacks'][] = $info_field_callback;
   }
 
   //<editor-fold defaultstate="collapsed" desc=" Data retrieval stuff ">
+  //Check what callback will be used to retrieve the data.
   $data_callback = 'multicomplete_type_' . $definition['#type'] . '_data';
+
   if (!function_exists($data_callback)) {
     $err_elements = array(
       'message' => array('#type' => 'markup', '#markup' => 'Given multicomplete type is not known to the system.'),
@@ -124,7 +129,7 @@ function multicomplete_autocomplete($identifier, $key_field, $string) {
     $err_elements = array(
       'message' => array('#type' => 'markup', '#markup' => 'Multicomplete default data callback did not return a proper value.'),
       'funcs' => array('#type' => 'markup', '#markup' => sprintf('<p>Function call: %s("%s", "%s") </p>', $identifier, $string, $definition)),
-      'return' => array('#type' => 'markup', '#markup' => sprintf('Return value: <br/><pre>%s</pre>'), (string) $data),
+      'return' => array('#type' => 'markup', '#markup' => sprintf('Return value: <br/><pre>%s</pre>', (isset($data) ? (string) $data : ''))),
     );
     watchdog('error', drupal_render($err_elements));
     return drupal_json_output(array());

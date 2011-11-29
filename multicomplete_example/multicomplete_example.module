@@ -1,40 +1,96 @@
 <?php
 
 function multicomplete_example_menu() {
-  
+
   $items = array();
-  
+
   $items['examples/multicomplete'] = array(
     'title' => 'Example Multi Complete',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('multicomplete_example_form'),
+    'page callback' => 'multicomplete_example_page',
     'access callback' => TRUE,
   );
-  
+
   return $items;
-  
+
 }
 
-function multicomplete_example_form($form, &$form_state) {
+function multicomplete_example_page() {
+
+  $output = array();
+  $output[] = drupal_get_form('multicomplete_example_form_simple');
+  $output[] = drupal_get_form('multicomplete_example_form_formatter');
+  return $output;
+}
+
+function multicomplete_example_form_simple($form, &$form_state) {
   $form = array();
-  $form['example_block']['f_first_field'] = array(
-    '#title' => 'First Field',
-    '#description' => '',
-    '#type' => 'textfield',
-    '#autocomplete_path' => 'multicomplete/js/multicomplete_example_form_multicomplete_objects/f/first_field',
+  $form['example_simple'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Simple',
   );
-  $form['example_block']['f_second_field'] = array(
+  $form['example_simple']['first_field'] = array(
+    '#title' => 'First Field',
+    '#type' => 'textfield',
+    '#autocomplete_path' => 'multicomplete/js/multicomplete_example_simple/f/first_field',
+  );
+  $form['example_simple']['second_field'] = array(
     '#title' => 'Second Field',
     '#type' => 'textfield',
   );
-  $form['example_block']['test_detecting_multicomplete']['third_field'] = array(
+  $form['example_simple']['third_field'] = array(
     '#title' => 'Third Field',
     '#type' => 'textfield',
   );
+
   return $form;
 }
 
-function multicomplete_example_form_multicomplete_objects($string, $key_field) {
+function multicomplete_example_form_formatter() {
+  $form = array();
+  $form['example_formatter'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Custom Formatter',
+  );
+  $form['example_formatter']['formatter_first_field'] = array(
+    '#type' => 'textfield',
+    '#title' => 'First field',
+    '#autocomplete_path' => 'multicomplete/js/multicomplete_example_formatter/f/first_field',
+  );
+  $form['example_formatter']['formatter_second_field'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Second Field',
+  );
+
+  return $form;
+}
+
+function multicomplete_example_simple($string, $key_field) {
+  return _multicomplete_example_data();
+}
+
+function multicomplete_example_formatter($string, $key_field) {
+  return _multicomplete_example_data();
+}
+
+function multicomplete_example_formatter_info($key_field, $identifier, &$definition) {
+  $defintion['#type'] = 'default';
+  $definition['#fields'] = array(
+    'first_field' => 'formatter_first_field',
+    'second_field' => 'formatter_second_field',
+  );
+  $definition['#element_format'] = 'multicomplete_example_formatter_format_callback';
+  $definition['#strict'] = TRUE;
+}
+
+function multicomplete_example_formatter_format_callback(&$obj, &$values, &$definition) {
+  return array(
+    '#type' => 'markup',
+    '#markup' => sprintf('%s (%s)', $obj['first_field'], $obj['second_field']),
+  );
+
+}
+
+function _multicomplete_example_data() {
   return array(
     array(
       'first_field' => 'First field value 1',
@@ -61,17 +117,4 @@ function multicomplete_example_form_multicomplete_objects($string, $key_field) {
       'strict_test' => 'test',
     ),
   );
-}
-
-function multicomplete_example_form_multicomplete_objects_info($key_field, $identifier, &$definition) {
-  $definition['#type'] = 'default'; //type to get data
-  $definition['#fields'] = array(// map data field to form fields.
-    'first_field' => 'f_first_field',
-    'second_field' => array('f_second_field'),
-    'third_field'
-  );
-}
-
-function multicomplete_example_form_multicomplete_objects_first_field_info($key_field, $identifier, &$definition) {
-  // not implemented
 }
