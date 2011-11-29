@@ -1,22 +1,23 @@
-Still in very early development. You can tackle or comment 
+Still in very early development. You can tackle or comment
 on any of the todos in the code. See the last line how to
 use my KICKASS task manager.
 
 
-Purpose:
-  
-  The purpose of this module is to enhance the current autocomplete 
-  functionallity in drupal by an autocomplete that can fill in 
+INTRODUCTION:
+
+  The purpose of this module is to enhance the current autocomplete
+  functionallity in drupal by an autocomplete that can fill in
   multiple fields in one go. An example might be easier to understand:
 
   You have an input field with postal codes. The autocomplete contains
   the postalcode and also the associated city (or cities). Whenever
   you select the postalcode, we also fill in the city input field. Or
-  we use it the other way arround: autocomplete on the city name and 
+  we use it the other way arround: autocomplete on the city name and
   fill out the postal code while we are autocompleting.
 
+  I suggest you take a look at the example module included here!
 
-@todo: Add content and improve the lame text above.
 
-TODOS: 
+
+TODOS:
  Use: grep -R -H -n @[t]odo *
